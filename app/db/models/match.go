@@ -1,0 +1,14 @@
+package models
+
+import (
+	"federation-backend/app/db/models/enums"
+	"time"
+)
+
+type Match struct {
+	Model
+	League string    `json:"league"`
+	Date   time.Time `json:"date"`
+	Sex    enums.Sex `json:"sex" gorm:"type:enum('male', 'female')"`
+	Teams  []Team    `json:"teams" gorm:"many2many:match_teams;"`
+}
