@@ -9,6 +9,6 @@ type Match struct {
 	Model
 	League string    `json:"league"`
 	Date   time.Time `json:"date"`
-	Sex    enums.Sex `json:"sex" gorm:"type:enum('male', 'female')"`
+	Sex    enums.Sex `json:"sex"`
 	Teams  []Team    `json:"teams" gorm:"many2many:match_teams;"`
 }

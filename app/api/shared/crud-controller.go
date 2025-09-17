@@ -1,0 +1,141 @@
+package shared
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// CrudController provides generic CRUD HTTP handlers for GORM models
+type CrudController[T any] struct {
+	service *CrudService[T]
+}
+
+// NewCrudController creates a new instance of CrudController
+func NewCrudController[T any](db *gorm.DB) *CrudController[T] {
+	return &CrudController[T]{
+		service: NewCrudService[T](db),
+	}
+}
+
+// Create handles POST requests to create a new entity
+func (c *CrudController[T]) Create(ctx *gin.Context) {
+	var dto T
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := c.service.Create(ctx.Request.Context(), &dto); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, dto)
+}
+
+// Get handles GET requests to retrieve an entity by ID
+func (c *CrudController[T]) Get(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	entity, err := c.service.Get(ctx.Request.Context(), uint(id))
+	if err != nil {
+		if err.Error() == "record not found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, entity)
+}
+
+// GetAll handles GET requests to retrieve all entities
+func (c *CrudController[T]) GetAll(ctx *gin.Context) {
+	// Parse query parameters for filtering
+	queryParams := ctx.Request.URL.Query()
+	whereClause := ""
+	var args []interface{}
+
+	// You can extend this to handle specific query parameters
+	// For example: ?age=30 could become "age = ?" with arg 30
+	for key, values := range queryParams {
+		if len(values) > 0 {
+			if whereClause != "" {
+				whereClause += " AND "
+			}
+			whereClause += key + " = ?"
+			args = append(args, values[0])
+		}
+	}
+
+	entities, err := c.service.GetAll(ctx.Request.Context(), whereClause, args)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, entities)
+}
+
+// Update handles PUT requests to update an entity by ID
+func (c *CrudController[T]) Update(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	var dto T
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := c.service.Update(ctx.Request.Context(), uint(id), &dto); err != nil {
+		if err.Error() == "record not found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto)
+}
+
+// Delete handles DELETE requests to remove an entity by ID
+func (c *CrudController[T]) Delete(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	if err := c.service.Delete(ctx.Request.Context(), uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Entity deleted successfully"})
+}
+
+// RegisterRoutes is a helper method to register all CRUD routes
+func (c *CrudController[T]) RegisterRoutes(router *gin.RouterGroup) {
+	router.GET("", c.GetAll)
+	router.GET("/:id", c.Get)
+	router.POST("", c.Create)
+	router.PUT("/:id", c.Update)
+	router.DELETE("/:id", c.Delete)
+}
