@@ -1,4 +1,4 @@
-package shared
+package crud
 
 import (
 	"context"
@@ -7,15 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type CrudService[T any] struct {
+type Service[T any] struct {
 	db *gorm.DB
 }
 
-func NewCrudService[T any](db *gorm.DB) *CrudService[T] {
-	return &CrudService[T]{db: db}
+func NewCrudService[T any](db *gorm.DB) *Service[T] {
+	return &Service[T]{db: db}
 }
 
-func (c *CrudService[T]) Create(ctx context.Context, dto *T) error {
+func (c *Service[T]) Create(ctx context.Context, dto *T) error {
 	if dto == nil {
 		return errors.New("dto cannot be nil")
 	}
@@ -28,7 +28,7 @@ func (c *CrudService[T]) Create(ctx context.Context, dto *T) error {
 	return nil
 }
 
-func (c *CrudService[T]) CreateInBatches(ctx context.Context, dtos []*T, batchSize int) error {
+func (c *Service[T]) CreateInBatches(ctx context.Context, dtos []*T, batchSize int) error {
 	if len(dtos) == 0 {
 		return errors.New("no records to create")
 	}
@@ -41,7 +41,7 @@ func (c *CrudService[T]) CreateInBatches(ctx context.Context, dtos []*T, batchSi
 	return nil
 }
 
-func (c *CrudService[T]) Get(ctx context.Context, id uint) (*T, error) {
+func (c *Service[T]) Get(ctx context.Context, id uint) (*T, error) {
 	var model T
 	result := c.db.WithContext(ctx).First(&model, id)
 	if result.Error != nil {
@@ -54,7 +54,7 @@ func (c *CrudService[T]) Get(ctx context.Context, id uint) (*T, error) {
 	return &model, nil
 }
 
-func (c *CrudService[T]) Update(ctx context.Context, id uint, dto *T) error {
+func (c *Service[T]) Update(ctx context.Context, id uint, dto *T) error {
 	var model T
 	result := c.db.WithContext(ctx).First(&model, id)
 	if result.Error != nil {
@@ -72,7 +72,7 @@ func (c *CrudService[T]) Update(ctx context.Context, id uint, dto *T) error {
 	return nil
 }
 
-func (c *CrudService[T]) Delete(ctx context.Context, id uint) error {
+func (c *Service[T]) Delete(ctx context.Context, id uint) error {
 	var model T
 	result := c.db.WithContext(ctx).Delete(&model, id)
 	if result.Error != nil {
@@ -86,7 +86,7 @@ func (c *CrudService[T]) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (c *CrudService[T]) GetAll(ctx context.Context, whereClause string, args []interface{}) ([]T, error) {
+func (c *Service[T]) GetAll(ctx context.Context, whereClause string, args []interface{}) ([]T, error) {
 	var models []T
 	query := c.db.WithContext(ctx).Model(new(T))
 
@@ -102,7 +102,7 @@ func (c *CrudService[T]) GetAll(ctx context.Context, whereClause string, args []
 	return models, nil
 }
 
-func (c *CrudService[T]) GetWithConditions(
+func (c *Service[T]) GetWithConditions(
 	ctx context.Context,
 	where map[string]interface{},
 	includes []string,

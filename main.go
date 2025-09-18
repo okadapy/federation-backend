@@ -1,7 +1,8 @@
 package main
 
 import (
-	"federation-backend/app/api/shared"
+	"federation-backend/app/api/shared/crud"
+	"federation-backend/app/config"
 	"federation-backend/app/db/models"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,7 @@ import (
 )
 
 func main() {
-	var config = NewConfig()
+	config.Init()
 	var app = gin.Default()
 	var db, err = gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
 	if err != nil {
@@ -27,9 +28,9 @@ func main() {
 	var callbackRouter = app.Group("/callback")
 	var matchRouter = app.Group("/match")
 
-	var userController = shared.NewCrudController[models.User](db)
-	var matchController = shared.NewCrudController[models.Match](db)
-	var callbackController = shared.NewCrudController[models.CallBack](db)
+	var userController = crud.NewCrudController[models.User](db)
+	var matchController = crud.NewCrudController[models.Match](db)
+	var callbackController = crud.NewCrudController[models.CallBack](db)
 
 	userController.RegisterRoutes(userRouter)
 	matchController.RegisterRoutes(matchRouter)

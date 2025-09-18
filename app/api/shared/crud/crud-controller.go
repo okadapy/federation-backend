@@ -1,4 +1,4 @@
-package shared
+package crud
 
 import (
 	"net/http"
@@ -8,20 +8,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// CrudController provides generic CRUD HTTP handlers for GORM models
-type CrudController[T any] struct {
-	service *CrudService[T]
+type Controller[T any] struct {
+	service *Service[T]
 }
 
 // NewCrudController creates a new instance of CrudController
-func NewCrudController[T any](db *gorm.DB) *CrudController[T] {
-	return &CrudController[T]{
+func NewCrudController[T any](db *gorm.DB) *Controller[T] {
+	return &Controller[T]{
 		service: NewCrudService[T](db),
 	}
 }
 
 // Create handles POST requests to create a new entity
-func (c *CrudController[T]) Create(ctx *gin.Context) {
+func (c *Controller[T]) Create(ctx *gin.Context) {
 	var dto T
 	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -37,7 +36,7 @@ func (c *CrudController[T]) Create(ctx *gin.Context) {
 }
 
 // Get handles GET requests to retrieve an entity by ID
-func (c *CrudController[T]) Get(ctx *gin.Context) {
+func (c *Controller[T]) Get(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
@@ -58,7 +57,7 @@ func (c *CrudController[T]) Get(ctx *gin.Context) {
 }
 
 // GetAll handles GET requests to retrieve all entities
-func (c *CrudController[T]) GetAll(ctx *gin.Context) {
+func (c *Controller[T]) GetAll(ctx *gin.Context) {
 	// Parse query parameters for filtering
 	queryParams := ctx.Request.URL.Query()
 	whereClause := ""
@@ -86,7 +85,7 @@ func (c *CrudController[T]) GetAll(ctx *gin.Context) {
 }
 
 // Update handles PUT requests to update an entity by ID
-func (c *CrudController[T]) Update(ctx *gin.Context) {
+func (c *Controller[T]) Update(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
@@ -112,7 +111,7 @@ func (c *CrudController[T]) Update(ctx *gin.Context) {
 }
 
 // Delete handles DELETE requests to remove an entity by ID
-func (c *CrudController[T]) Delete(ctx *gin.Context) {
+func (c *Controller[T]) Delete(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
@@ -132,7 +131,7 @@ func (c *CrudController[T]) Delete(ctx *gin.Context) {
 }
 
 // RegisterRoutes is a helper method to register all CRUD routes
-func (c *CrudController[T]) RegisterRoutes(router *gin.RouterGroup) {
+func (c *Controller[T]) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("", c.GetAll)
 	router.GET("/:id", c.Get)
 	router.POST("", c.Create)

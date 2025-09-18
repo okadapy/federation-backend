@@ -4,9 +4,9 @@ import "federation-backend/app/db/models/enums"
 
 type BaseNewsData struct {
 	Model
-	Heading     string     `json:"heading"`
-	Description string     `json:"description"`
-	Images      []FilePath `json:"images" gorm:"many2many:news_images"`
+	Heading     string `json:"heading"`
+	Description string `json:"description"`
+	Images      []File `json:"images" gorm:"many2many:news_images"`
 }
 
 type News struct {

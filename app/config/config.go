@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -70,4 +70,15 @@ func getEnv(key, fallback string) string {
 	}
 
 	return fallback
+}
+
+var DB *DBConfig
+var App *AppConfig
+var Server *ServerConfig
+
+func Init() {
+	cfg := NewConfig()
+	DB = &cfg.DB
+	App = &cfg.App
+	Server = &cfg.Server
 }
