@@ -129,12 +129,3 @@ func (c *Controller[T]) Delete(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Entity deleted successfully"})
 }
-
-// RegisterRoutes is a helper method to register all CRUD routes
-func (c *Controller[T]) RegisterRoutes(router *gin.RouterGroup) {
-	router.GET("", c.GetAll)
-	router.GET("/:id", c.Get)
-	router.POST("", c.Create)
-	router.PUT("/:id", c.Update)
-	router.DELETE("/:id", c.Delete)
-}
