@@ -35,8 +35,8 @@ func NewConfig() *Config {
 			Driver: getEnv("DB_DRIVER", "postgres"),
 			Host:   getEnv("DB_HOST", "db"),
 			Port:   getEnv("DB_PORT", "5432"),
-			User:   getEnv("DB_USER", "postgres"),
-			Pass:   getEnv("DB_PASS", "postgres"),
+			User:   getEnv("DB_USERNAME", "okada"),
+			Pass:   getEnv("DB_PASSWORD", "root"),
 			Name:   getEnv("DB_NAME", "postgres"),
 		},
 		Server: ServerConfig{

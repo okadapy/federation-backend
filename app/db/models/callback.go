@@ -1,3 +1,4 @@
+// callback.go
 package models
 
 type CallbackType string
@@ -9,9 +10,9 @@ const (
 
 type CallBack struct {
 	Model
-	Name         string       `json:"name"`
-	Phone        string       `json:"phone"`
-	Email        *string      `json:"email"`
-	TeamName     *string      `json:"team_name"`
-	CallbackType CallbackType `json:"callback_type" gorm:"default:'callback_request'"`
+	Name         string       `json:"name" gorm:"size:100"`
+	Phone        string       `json:"phone" gorm:"size:20"`
+	Email        *string      `json:"email" gorm:"size:255"`
+	TeamName     *string      `json:"team_name" gorm:"size:255"`
+	CallbackType CallbackType `json:"callback_type" gorm:"type:ENUM('team_application','callback_request');default:'callback_request'"`
 }

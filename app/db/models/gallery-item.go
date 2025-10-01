@@ -1,3 +1,4 @@
+// gallery-item.go (no changes needed as it uses relations)
 package models
 
 type GalleryItem struct {

@@ -1,11 +1,12 @@
+// team.go
 package models
 
 import "federation-backend/app/db/models/enums"
 
 type Team struct {
 	Model
-	TeamName   string    `json:"team_name"`
-	Sex        enums.Sex `json:"sex" gorm:"default:'male'"`
+	TeamName   string    `json:"team_name" gorm:"size:255"`
+	Sex        enums.Sex `json:"sex" gorm:"type:ENUM('female','male');default:'male'"`
 	TeamLogoID uint64    `json:"team_logo_id"`
 	TeamLogo   File      `gorm:"foreignkey:TeamLogoID"`
 }

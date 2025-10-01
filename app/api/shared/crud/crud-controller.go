@@ -1,8 +1,11 @@
+// crud-controller.go
 package crud
 
 import (
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -10,16 +13,18 @@ import (
 
 type Controller[T any] struct {
 	service *Service[T]
+	logger  *log.Logger
 }
 
-// NewCrudController creates a new instance of CrudController
-func NewCrudController[T any](db *gorm.DB) *Controller[T] {
+// NewCrudController создает новый экземпляр CrudController
+func NewCrudController[T any](db *gorm.DB, logger *log.Logger) *Controller[T] {
 	return &Controller[T]{
-		service: NewCrudService[T](db),
+		service: NewCrudService[T](db, logger),
+		logger:  logger,
 	}
 }
 
-// Create handles POST requests to create a new entity
+// Create обрабатывает POST запросы для создания новой сущности
 func (c *Controller[T]) Create(ctx *gin.Context) {
 	var dto T
 	if err := ctx.ShouldBindJSON(&dto); err != nil {
@@ -35,7 +40,7 @@ func (c *Controller[T]) Create(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, dto)
 }
 
-// Get handles GET requests to retrieve an entity by ID
+// Get обрабатывает GET запросы для получения сущности по ID
 func (c *Controller[T]) Get(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -56,26 +61,9 @@ func (c *Controller[T]) Get(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, entity)
 }
 
-// GetAll handles GET requests to retrieve all entities
+// GetAll обрабатывает GET запросы для получения всех сущностей
 func (c *Controller[T]) GetAll(ctx *gin.Context) {
-	// Parse query parameters for filtering
-	queryParams := ctx.Request.URL.Query()
-	whereClause := ""
-	var args []interface{}
-
-	// You can extend this to handle specific query parameters
-	// For example: ?age=30 could become "age = ?" with arg 30
-	for key, values := range queryParams {
-		if len(values) > 0 {
-			if whereClause != "" {
-				whereClause += " AND "
-			}
-			whereClause += key + " = ?"
-			args = append(args, values[0])
-		}
-	}
-
-	entities, err := c.service.GetAll(ctx.Request.Context(), whereClause, args)
+	entities, err := c.service.GetAll()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -84,7 +72,7 @@ func (c *Controller[T]) GetAll(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, entities)
 }
 
-// Update handles PUT requests to update an entity by ID
+// Update обрабатывает PUT запросы для обновления сущности по ID
 func (c *Controller[T]) Update(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -110,7 +98,7 @@ func (c *Controller[T]) Update(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dto)
 }
 
-// Delete handles DELETE requests to remove an entity by ID
+// Delete обрабатывает DELETE запросы для удаления сущности по ID
 func (c *Controller[T]) Delete(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -128,4 +116,53 @@ func (c *Controller[T]) Delete(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Entity deleted successfully"})
+}
+
+// GetWithConditions обрабатывает GET запросы с условиями фильтрации
+func (c *Controller[T]) GetWithConditions(ctx *gin.Context) {
+	// Парсим параметры запроса
+	includes := ctx.Query("includes")
+	order := ctx.Query("order")
+	limitStr := ctx.Query("limit")
+
+	var limit int
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			limit = l
+		}
+	}
+
+	// Создаем карту условий из query параметров
+	where := make(map[string]interface{})
+	queryParams := ctx.Request.URL.Query()
+
+	for key, values := range queryParams {
+		// Пропускаем служебные параметры
+		if key == "includes" || key == "order" || key == "limit" {
+			continue
+		}
+
+		if len(values) > 0 {
+			where[key] = values[0]
+		}
+	}
+
+	var includeRelations []string
+	if includes != "" {
+		includeRelations = strings.Split(includes, ",")
+	}
+
+	entities, err := c.service.GetWithConditions(
+		ctx.Request.Context(),
+		where,
+		includeRelations,
+		order,
+		limit,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, entities)
 }

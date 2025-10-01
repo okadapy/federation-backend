@@ -1,19 +1,23 @@
+// news.go
 package models
 
-import "federation-backend/app/db/models/enums"
+import (
+	"federation-backend/app/db/models/enums"
+	"time"
+)
 
 type BaseNewsData struct {
 	Model
-	Heading     string `json:"heading"`
-	Description string `json:"description"`
+	Heading     string `json:"heading" gorm:"size:255"`
+	Description string `json:"description" gorm:"type:text"`
 	Images      []File `json:"images" gorm:"many2many:news_images"`
 }
 
 type News struct {
 	BaseNewsData
-	Date      string  `json:"date"`
-	ChapterID uint    `json:"chapter_id"`
-	Chapter   Chapter `json:"chapter" gorm:"foreignKey:ChapterID"`
+	Date      time.Time `json:"date"`
+	ChapterID uint      `json:"chapter_id"`
+	Chapter   Chapter   `json:"chapter" gorm:"foreignKey:ChapterID"`
 }
 
 type HistoryItem struct {
@@ -23,6 +27,6 @@ type HistoryItem struct {
 
 type Chapter struct {
 	Model
-	Name string     `json:"name"`
-	Page enums.Page `json:"page"`
+	Name string     `json:"name" gorm:"size:100"`
+	Page enums.Page `json:"page" gorm:"type:ENUM('news','gallery','documents')"`
 }

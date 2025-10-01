@@ -11,9 +11,9 @@ type Controller interface {
 }
 
 func RegisterRoutes(c Controller, router *gin.RouterGroup) {
-	router.GET("", c.GetAll)
+	router.GET("/", c.GetAll)
 	router.GET("/:id", c.Get)
-	router.POST("", c.Create)
+	router.POST("/", c.Create)
 	router.PUT("/:id", c.Update)
 	router.DELETE("/:id", c.Delete)
 }

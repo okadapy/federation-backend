@@ -56,6 +56,7 @@ func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (string, error) {
 	metadata := models.File{
 		Name: fileHeader.Filename,
 		Size: fileHeader.Size,
+		Path: path,
 	}
 	if err := s.db.Create(&metadata).Error; err != nil {
 		os.Remove(path) // Clean up

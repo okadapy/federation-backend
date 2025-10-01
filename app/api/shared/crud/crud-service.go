@@ -1,18 +1,21 @@
+// crud-service.go
 package crud
 
 import (
 	"context"
 	"errors"
+	"log"
 
 	"gorm.io/gorm"
 )
 
 type Service[T any] struct {
-	db *gorm.DB
+	db     *gorm.DB
+	logger *log.Logger
 }
 
-func NewCrudService[T any](db *gorm.DB) *Service[T] {
-	return &Service[T]{db: db}
+func NewCrudService[T any](db *gorm.DB, logger *log.Logger) *Service[T] {
+	return &Service[T]{db: db, logger: logger}
 }
 
 func (c *Service[T]) Create(ctx context.Context, dto *T) error {
@@ -86,22 +89,6 @@ func (c *Service[T]) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (c *Service[T]) GetAll(ctx context.Context, whereClause string, args []interface{}) ([]T, error) {
-	var models []T
-	query := c.db.WithContext(ctx).Model(new(T))
-
-	if whereClause != "" {
-		query = query.Where(whereClause, args...)
-	}
-
-	result := query.Find(&models)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return models, nil
-}
-
 func (c *Service[T]) GetWithConditions(
 	ctx context.Context,
 	where map[string]interface{},
@@ -134,4 +121,31 @@ func (c *Service[T]) GetWithConditions(
 	}
 
 	return models, nil
+}
+
+// GetAll возвращает все записи с возможностью предзагрузки связей
+func (c *Service[T]) GetAll() ([]T, error) {
+	var models []T
+	defer c.logger.Printf("Exiting GetAll()")
+	c.logger.Printf("GetAll() invoked for %+v\n", *c)
+	result := c.db.Find(&models)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, errors.New("record not found")
+	}
+	return models, nil
+}
+
+// UpdateWithAssociations обновляет запись со связями
+func (c *Service[T]) UpdateWithAssociations(ctx context.Context, id uint, dto *T) error {
+	var model T
+	result := c.db.First(&model, id)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	result = c.db.WithContext(ctx).Model(&model).Save(dto)
+	return result.Error
 }
