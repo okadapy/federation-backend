@@ -5,17 +5,22 @@ import (
 	"federation-backend/app/db/models"
 	"fmt"
 	"mime/multipart"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 type CreateGalleryItemDTO struct {
-	ChapterID uint                    `form:"chapterId" binding:"required"`
+	Name      string                  `form:"name"`
+	ChapterID uint                    `form:"chapter_id" binding:"required"`
+	Date      time.Time               `form:"date" binding:"required"`
 	Images    []*multipart.FileHeader `form:"images" binding:"required,min=1"`
 }
 
 type UpdateGalleryItemDTO struct {
-	ChapterID *uint                   `form:"chapterId"`
+	ChapterID *uint                   `form:"chapter_id"`
+	Name      *string                 `form:"name"`
+	Date      *time.Time              `form:"date"`
 	Images    []*multipart.FileHeader `form:"images"`
 }
 
@@ -38,6 +43,8 @@ func (s *Service) Create(dto interface{}) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		galleryItem := models.GalleryItem{
 			ChapterID: createDTO.ChapterID,
+			Name:      createDTO.Name,
+			Date:      createDTO.Date,
 		}
 
 		if err := tx.Create(&galleryItem).Error; err != nil {
@@ -122,6 +129,13 @@ func (s *Service) Update(id uint, dto interface{}) error {
 					return fmt.Errorf("failed to associate image: %w", err)
 				}
 			}
+		}
+
+		if updateDTO.Name != nil {
+			item.Name = *updateDTO.Name
+		}
+		if updateDTO.Date != nil {
+			item.Date = *updateDTO.Date
 		}
 
 		if err := tx.Save(&item).Error; err != nil {
