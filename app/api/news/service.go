@@ -33,7 +33,7 @@ type Service struct {
 }
 
 type FileService interface {
-	SaveFile(fileHeader *multipart.FileHeader) (string, error)
+	SaveFile(fileHeader *multipart.FileHeader) (*models.File, error)
 	DeleteFile(filename string) error
 }
 
@@ -72,20 +72,10 @@ func (s *Service) Create(dto interface{}) error {
 	}
 
 	for _, fileHeader := range createDTO.Images {
-		filename, err := s.fileService.SaveFile(fileHeader)
+		file, err := s.fileService.SaveFile(fileHeader)
 		if err != nil {
 			return fmt.Errorf("failed to save image: %w", err)
 		}
-
-		file := models.File{
-			Name: fileHeader.Filename,
-			Size: fileHeader.Size,
-			Path: filename,
-		}
-		if err := s.db.Create(&file).Error; err != nil {
-			return fmt.Errorf("failed to create file record: %w", err)
-		}
-
 		if err := s.db.Model(&news).Association("Images").Append(&file); err != nil {
 			return fmt.Errorf("failed to associate image: %w", err)
 		}
@@ -150,20 +140,10 @@ func (s *Service) Update(id uint, dto interface{}) error {
 
 		// Add new images
 		for _, fileHeader := range updateDTO.Images {
-			filename, err := s.fileService.SaveFile(fileHeader)
+			file, err := s.fileService.SaveFile(fileHeader)
 			if err != nil {
 				return fmt.Errorf("failed to save image: %w", err)
 			}
-
-			file := models.File{
-				Name: fileHeader.Filename,
-				Size: fileHeader.Size,
-				Path: filename,
-			}
-			if err := s.db.Create(&file).Error; err != nil {
-				return fmt.Errorf("failed to create file record: %w", err)
-			}
-
 			if err := s.db.Model(&news).Association("Images").Append(&file); err != nil {
 				return fmt.Errorf("failed to associate image: %w", err)
 			}
