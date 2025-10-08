@@ -15,12 +15,12 @@ type Controller struct {
 func (c *Controller) Create(ctx *gin.Context) {
 	var dto CreateTeamDTO
 	if err := ctx.ShouldBind(&dto); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "type": "binding error"})
 		return
 	}
 
 	if err := c.service.Create(&dto); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "type": "create error"})
 		return
 	}
 
