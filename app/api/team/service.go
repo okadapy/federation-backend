@@ -3,27 +3,30 @@ package team
 
 import (
 	"errors"
+	files "federation-backend/app/api/file"
 	"federation-backend/app/db/models"
 	"federation-backend/app/db/models/enums"
 	"fmt"
+	"mime/multipart"
 
 	"gorm.io/gorm"
 )
 
 type CreateTeamDTO struct {
-	TeamName   string    `form:"teamName" binding:"required"`
-	Sex        enums.Sex `form:"sex" binding:"required"`
-	TeamLogoID uint64    `form:"teamLogoId" binding:"required"`
+	TeamName string                `form:"teamName" binding:"required"`
+	Sex      enums.Sex             `form:"sex" binding:"required"`
+	TeamLogo *multipart.FileHeader `form:"teamLogo" binding:"required"`
 }
 
 type UpdateTeamDTO struct {
-	TeamName   *string    `form:"teamName"`
-	Sex        *enums.Sex `form:"sex"`
-	TeamLogoID *uint64    `form:"teamLogoId"`
+	TeamName *string               `form:"teamName"`
+	Sex      *enums.Sex            `form:"sex"`
+	TeamLogo *multipart.FileHeader `form:"teamLogo"`
 }
 
 type Service struct {
 	db *gorm.DB
+	fs *files.Service
 }
 
 func (s *Service) Create(dto interface{}) error {
@@ -32,10 +35,15 @@ func (s *Service) Create(dto interface{}) error {
 		return errors.New("invalid DTO type")
 	}
 
+	logo, err := s.fs.SaveFile(createDTO.TeamLogo)
+	if err != nil {
+		return err
+	}
+
 	team := models.Team{
 		TeamName:   createDTO.TeamName,
 		Sex:        createDTO.Sex,
-		TeamLogoID: createDTO.TeamLogoID,
+		TeamLogoID: logo.Id,
 	}
 
 	if err := s.db.Create(&team).Error; err != nil {
@@ -74,8 +82,8 @@ func (s *Service) Update(id uint, dto interface{}) error {
 	if updateDTO.Sex != nil {
 		team.Sex = *updateDTO.Sex
 	}
-	if updateDTO.TeamLogoID != nil {
-		team.TeamLogoID = *updateDTO.TeamLogoID
+	if updateDTO.TeamLogo != nil {
+
 	}
 
 	if err := s.db.Save(&team).Error; err != nil {

@@ -7,6 +7,6 @@ type Team struct {
 	Model
 	TeamName   string    `json:"team_name" gorm:"size:255"`
 	Sex        enums.Sex `json:"sex" gorm:"type:ENUM('female','male');default:'male'"`
-	TeamLogoID uint64    `json:"team_logo_id"`
+	TeamLogoID int       `json:"team_logo_id"`
 	TeamLogo   File      `gorm:"foreignkey:TeamLogoID"`
 }

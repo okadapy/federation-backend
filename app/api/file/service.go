@@ -26,15 +26,15 @@ func NewService(db *gorm.DB, storagePath string) (*Service, error) {
 	return &Service{db: db, storagePath: storagePath}, nil
 }
 
-func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (string, error) {
+func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (*models.File, error) {
 	fileExt := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	if !isAllowedExtension(fileExt) {
-		return "", errors.New("disallowed file extension")
+		return nil, errors.New("disallowed file extension")
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return "", fmt.Errorf("failed to open uploaded file: %w", err)
+		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
 	}
 	defer file.Close()
 
@@ -44,13 +44,13 @@ func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (string, error) {
 
 	dst, err := os.Create(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to create file: %w", err)
+		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 	defer dst.Close()
 
 	if _, err := io.Copy(dst, file); err != nil {
 		os.Remove(path) // Clean up
-		return "", fmt.Errorf("failed to save file: %w", err)
+		return nil, fmt.Errorf("failed to save file: %w", err)
 	}
 
 	metadata := models.File{
@@ -60,10 +60,10 @@ func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (string, error) {
 	}
 	if err := s.db.Create(&metadata).Error; err != nil {
 		os.Remove(path) // Clean up
-		return "", fmt.Errorf("failed to save metadata: %w", err)
+		return nil, fmt.Errorf("failed to save metadata: %w", err)
 	}
 
-	return filename, nil
+	return &metadata, nil
 }
 
 func (s *Service) GetFile(filename string) (io.ReadCloser, error) {
