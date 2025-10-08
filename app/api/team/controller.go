@@ -1,6 +1,7 @@
 package team
 
 import (
+	files "federation-backend/app/api/file"
 	"net/http"
 	"strconv"
 
@@ -89,8 +90,8 @@ func (c *Controller) GetAll(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, teams)
 }
 
-func NewController(db *gorm.DB) *Controller {
+func NewController(db *gorm.DB, fs *files.Service) *Controller {
 	return &Controller{
-		service: NewService(db),
+		service: NewService(db, fs),
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"federation-backend/app/api/match"
 	"federation-backend/app/api/news"
 	"federation-backend/app/api/shared/crud"
+	"federation-backend/app/api/team"
 	"federation-backend/app/config"
 	"federation-backend/app/db/models"
 	"federation-backend/app/interfaces"
@@ -86,7 +87,7 @@ func main() {
 		galleryItem.NewController(db, fileService):          app.Group("/gallery"),
 		news.NewController(db, fileService):                 app.Group("/news"),
 		crud.NewCrudController[models.Chapter](db, logger):  app.Group("/chapter"),
-		crud.NewCrudController[models.Team](db, logger):     app.Group("/team"),
+		team.NewController(db, fileService):                 app.Group("/team"),
 		match.NewController(db, logger):                     app.Group("/match"),
 	}
 
