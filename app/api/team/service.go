@@ -114,8 +114,9 @@ func (s *Service) GetAll() ([]models.Team, error) {
 	return teams, nil
 }
 
-func NewService(db *gorm.DB) *Service {
+func NewService(db *gorm.DB, fs *files.Service) *Service {
 	return &Service{
 		db: db,
+		fs: fs,
 	}
 }
