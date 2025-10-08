@@ -13,9 +13,38 @@ import (
 )
 
 type Controller struct {
-	*crud.Controller[models.Match]
+	db    *gorm.DB
 	match *crud.Service[models.Match]
 	teams *crud.Service[models.Team]
+}
+
+func (c Controller) Delete(ctx *gin.Context) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c Controller) Get(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+
+	var match *models.Match
+	c.db.Preload("Teams").Model(&models.Match{}).Where("id = ?", id).First(&match)
+	if match == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"message": "match not found"})
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"match": match})
+}
+
+func (c Controller) GetAll(ctx *gin.Context) {
+	var matches []*models.Match
+	c.db.Preload("Teams").Model(&models.Match{}).Find(&matches)
+	if matches == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"message": "match not found"})
+	}
+	ctx.JSON(http.StatusOK, gin.H{"matches": matches})
 }
 
 type CreateMatchDTO struct {
@@ -39,6 +68,7 @@ func (c Controller) Create(ctx *gin.Context) {
 	item.Date = dto.Date
 	item.League = dto.League
 	item.Sex = dto.Sex
+	log.Println(dto.TeamIDs)
 
 	if err := c.match.Create(ctx, &item); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -52,13 +82,15 @@ func (c Controller) Create(ctx *gin.Context) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
 		teams = append(teams, team)
+		log.Println(team)
 	}
-	item.Teams = teams
+	log.Println(teams)
 
-	log.Println(len(item.Teams))
 	c.match.Db.Save(&item)
-	log.Println(len(item.Teams))
-	log.Println(item.Teams)
+	if err := c.teams.Db.Model(&item).Association("Teams").Replace(teams); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+	c.match.Db.Save(&item)
 
 	ctx.JSON(http.StatusCreated, gin.H{"message": "match created"})
 }
@@ -87,17 +119,6 @@ func (c Controller) Update(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
-	if dto.TeamIDs != nil {
-		var teams []*models.Team
-		for _, id := range dto.TeamIDs {
-			team, err := c.teams.Get(ctx.Request.Context(), id)
-			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			}
-			teams = append(teams, team)
-		}
-		item.Teams = teams
-	}
 	if dto.League != nil {
 		item.League = *dto.League
 	}
@@ -110,15 +131,30 @@ func (c Controller) Update(ctx *gin.Context) {
 		item.Sex = *dto.Sex
 	}
 
-	c.match.Db.Save(&item)
+	c.match.Db.Save(item)
+
+	if dto.TeamIDs != nil {
+		var teams []*models.Team
+		for _, id := range dto.TeamIDs {
+			team, err := c.teams.Get(ctx.Request.Context(), id)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+			teams = append(teams, team)
+		}
+		if err := c.match.Db.Model(item).Association("Teams").Replace(teams); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+	}
+
+	c.match.Db.Save(item)
 	ctx.JSON(http.StatusOK, gin.H{"message": "match updated"})
 }
 
 func NewController(db *gorm.DB, logger *log.Logger) *Controller {
 	return &Controller{
-		Controller: crud.NewCrudController[models.Match](db, logger),
-		match:      crud.NewCrudService[models.Match](db, logger),
-		teams:      crud.NewCrudService[models.Team](db, logger),
+		db:    db,
+		match: crud.NewCrudService[models.Match](db, logger),
+		teams: crud.NewCrudService[models.Team](db, logger),
 	}
-
 }
