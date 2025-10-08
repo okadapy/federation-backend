@@ -44,17 +44,21 @@ func (c Controller) Create(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
+	var teams []*models.Team
 	for _, id := range dto.TeamIDs {
 		team, err := c.teams.Get(ctx.Request.Context(), id)
 
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-
-		item.Teams = append(item.Teams, team)
+		teams = append(teams, team)
 	}
+	item.Teams = teams
 
+	log.Println(len(item.Teams))
 	c.match.Db.Save(&item)
+	log.Println(len(item.Teams))
+	log.Println(item.Teams)
 
 	ctx.JSON(http.StatusCreated, gin.H{"message": "match created"})
 }
