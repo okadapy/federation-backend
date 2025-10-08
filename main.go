@@ -3,6 +3,7 @@ package main
 import (
 	files "federation-backend/app/api/file"
 	galleryItem "federation-backend/app/api/gallery-item"
+	"federation-backend/app/api/match"
 	"federation-backend/app/api/news"
 	"federation-backend/app/api/shared/crud"
 	"federation-backend/app/config"
@@ -86,6 +87,7 @@ func main() {
 		news.NewController(db, fileService):                 app.Group("/news"),
 		crud.NewCrudController[models.Chapter](db, logger):  app.Group("/chapter"),
 		crud.NewCrudController[models.Team](db, logger):     app.Group("/team"),
+		match.NewController(db, logger):                     app.Group("/match"),
 	}
 
 	for controller, router := range routerController {
