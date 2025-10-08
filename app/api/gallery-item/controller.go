@@ -80,8 +80,11 @@ func (c *Controller) Delete(ctx *gin.Context) {
 }
 
 func (c *Controller) GetAll(ctx *gin.Context) {
-	// Implementation would depend on specific requirements
-	ctx.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
+	items, err := c.service.GetAll()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+	ctx.JSON(http.StatusOK, items)
 }
 
 func NewController(db *gorm.DB, service FileService) *Controller {

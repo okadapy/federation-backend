@@ -4,6 +4,7 @@ import (
 	"errors"
 	"federation-backend/app/db/models"
 	"fmt"
+	"gorm.io/gorm/clause"
 	"mime/multipart"
 	"time"
 
@@ -76,6 +77,15 @@ func (s *Service) Get(id uint) (models.GalleryItem, error) {
 		return models.GalleryItem{}, fmt.Errorf("failed to get gallery item: %w", err)
 	}
 	return item, nil
+}
+
+func (s *Service) GetAll() ([]models.GalleryItem, error) {
+	var items []models.GalleryItem
+	err := s.db.Preload(clause.Associations).Find(&items).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gallery items: %w", err)
+	}
+	return items, nil
 }
 
 func (s *Service) Update(id uint, dto interface{}) error {
