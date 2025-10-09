@@ -4,7 +4,6 @@ import (
 	"errors"
 	"federation-backend/app/db/models"
 	"fmt"
-	"gorm.io/gorm/clause"
 	"mime/multipart"
 	"time"
 
@@ -69,7 +68,7 @@ func (s *Service) Create(dto interface{}) error {
 
 func (s *Service) Get(id uint) (models.GalleryItem, error) {
 	var item models.GalleryItem
-	err := s.db.Preload(clause.Associations).First(&item, id).Error
+	err := s.db.Joins("Images").Joins("Chapter").First(&item, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.GalleryItem{}, errors.New("gallery item not found")
@@ -81,7 +80,7 @@ func (s *Service) Get(id uint) (models.GalleryItem, error) {
 
 func (s *Service) GetAll() ([]models.GalleryItem, error) {
 	var items []models.GalleryItem
-	err := s.db.Preload(clause.Associations).Find(&items).Error
+	err := s.db.Joins("Images").Joins("Chapter").Find(&items).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gallery items: %w", err)
 	}
