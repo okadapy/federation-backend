@@ -86,7 +86,7 @@ func (s *Service) Create(dto interface{}) error {
 
 func (s *Service) Get(id uint) (models.News, error) {
 	var news models.News
-	err := s.db.Preload("Images").Preload("Chapter").First(&news, id).Error
+	err := s.db.Model(&models.News{}).Preload("Images").Preload("Chapter").Find(&news, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.News{}, errors.New("news not found")
@@ -179,7 +179,7 @@ func (s *Service) Delete(id uint) error {
 
 func (s *Service) GetAll() ([]models.News, error) {
 	var news []models.News
-	if err := s.db.Preload("Images").Find(&news).Error; err != nil {
+	if err := s.db.Model(&models.News{}).Preload("Images").Find(&news).Error; err != nil {
 		return nil, fmt.Errorf("failed to find news: %w", err)
 	}
 
