@@ -69,7 +69,7 @@ func (s *Service) Create(dto interface{}) error {
 
 func (s *Service) Get(id uint) (models.GalleryItem, error) {
 	var item models.GalleryItem
-	err := s.db.Preload("Images").Preload("Chapter").First(&item, id).Error
+	err := s.db.Preload(clause.Associations).First(&item, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.GalleryItem{}, errors.New("gallery item not found")
