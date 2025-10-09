@@ -10,12 +10,12 @@ import (
 	"federation-backend/app/db/models"
 	"federation-backend/app/interfaces"
 	"fmt"
-	"gorm.io/driver/postgres"
 	"log"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	swagger "github.com/swaggo/gin-swagger"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -52,7 +52,7 @@ func main() {
 	config.Init()
 	var app = gin.Default()
 	var logger = log.Default()
-	var db, dbErr = gorm.Open(postgres.Open("host=db user=gorm password=gorm dbname=gorm port=5432 sslmode=disable"), &gorm.Config{})
+	var db, dbErr = gorm.Open(mysql.Open("root:root@tcp(db:3306)/federation?parseTime=true"), &gorm.Config{})
 
 	app.Use(CORSMiddleware())
 
