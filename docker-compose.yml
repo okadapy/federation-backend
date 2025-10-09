@@ -14,21 +14,20 @@ services:
     restart: always
 
   db:
-    image: postgres:latest
-    restart: always
+    image: mysql
     environment:
-      POSTGRES_USER: gorm
-      POSTGRES_PASSWORD: gorm
-      POSTGRES_DB: gorm
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_TCP_PORT: ${DB_PORT}  # Явно указываем порт
     ports:
-      - "5432:5432" # Map host port 5432 to container port 5432
+      - "3306:3306"  # Пробрасываем стандартный порт
     volumes:
-      - db_data:/var/lib/postgresql/data # Persist data in a named volume
+      - database_mysql:/var/lib/mysql  # Корректный путь для MySQL
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 3
+
 volumes:
-  db_data:
+  database_mysql:
