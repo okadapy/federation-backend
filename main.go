@@ -93,6 +93,22 @@ func main() {
 		document.NewController(db, fileService):             app.Group("/document"),
 	}
 
+	fileController, err := files.NewController(db, config.App.FileStoragePath)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	fileGroup := app.Group("/files")
+	{
+		fileGroup.POST("/upload", fileController.UploadFile)
+		fileGroup.POST("/upload-multiple", fileController.UploadMultipleFiles)
+		fileGroup.GET("/info/:id", fileController.GetFileInfo)
+		fileGroup.GET("/all", fileController.GetAllFiles)
+		fileGroup.GET("/exists/:filename", fileController.CheckFileExists)
+		fileGroup.GET("/storage-info", fileController.GetStorageInfo)
+		fileGroup.DELETE("/:filename", fileController.DeleteFile)
+	}
+
 	for controller, router := range routerController {
 
 		fmt.Println("\n\ninitializing router for ", router.BasePath())
