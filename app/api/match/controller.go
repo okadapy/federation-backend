@@ -4,12 +4,14 @@ import (
 	"federation-backend/app/api/shared/crud"
 	"federation-backend/app/db/models"
 	"federation-backend/app/db/models/enums"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Controller struct {
@@ -69,7 +71,7 @@ func (c Controller) GetAll(ctx *gin.Context) {
 
 type CreateMatchDTO struct {
 	League  string    `json:"league" binding:"required"`
-	Date    time.Time `json:"date" binding:"required"`
+	Date    string    `json:"date" binding:"required"`
 	Sex     enums.Sex `json:"sex" binding:"required"`
 	TeamIDs []uint    `json:"team_ids" binding:"required"`
 }
@@ -87,7 +89,13 @@ func (c Controller) Create(ctx *gin.Context) {
 	}
 
 	var item models.Match
-	item.Date = dto.Date
+	var date time.Time
+	var err error
+	if date, err = c.parseDate(dto.Date); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+
+	item.Date = date
 	item.League = dto.League
 	item.Sex = dto.Sex
 	log.Println(dto.TeamIDs)
@@ -118,7 +126,7 @@ func (c Controller) Create(ctx *gin.Context) {
 
 type UpdateMatchDTO struct {
 	League  *string    `json:"league"`
-	Date    *time.Time `json:"date"`
+	Date    *string    `json:"date"`
 	Sex     *enums.Sex `json:"sex"`
 	TeamIDs []uint     `json:"team_ids"`
 }
@@ -148,7 +156,11 @@ func (c Controller) Update(ctx *gin.Context) {
 	}
 
 	if dto.Date != nil {
-		item.Date = *dto.Date
+		var date time.Time
+		if date, err = c.parseDate(*dto.Date); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		item.Date = date
 	}
 
 	if dto.Sex != nil {
@@ -181,4 +193,26 @@ func NewController(db *gorm.DB, logger *log.Logger) *Controller {
 		match: crud.NewCrudService[models.Match](db, logger),
 		teams: crud.NewCrudService[models.Team](db, logger),
 	}
+}
+
+func (c *Controller) parseDate(date string) (time.Time, error) {
+	// Try parsing as timestamp first
+	if timestamp, err := strconv.ParseInt(date, 10, 64); err == nil {
+		return time.Unix(timestamp, 0), nil
+	}
+
+	// Try parsing as RFC3339 or other date formats
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02 15:04:05",
+	}
+
+	for _, format := range formats {
+		if parsed, err := time.Parse(format, date); err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid date format: %s", date)
 }

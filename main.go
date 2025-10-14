@@ -100,8 +100,6 @@ func main() {
 
 	fileGroup := app.Group("/files")
 	{
-		fileGroup.POST("/upload", fileController.UploadFile)
-		fileGroup.POST("/upload-multiple", fileController.UploadMultipleFiles)
 		fileGroup.GET("/info/:id", fileController.GetFileInfo)
 		fileGroup.GET("/all", fileController.GetAllFiles)
 		fileGroup.GET("/exists/:filename", fileController.CheckFileExists)
