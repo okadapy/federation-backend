@@ -11,6 +11,8 @@ services:
         condition: service_healthy
     command:
       - "/federation"
+    volumes:
+      - files:/app/files
     restart: always
 
   db:
@@ -31,3 +33,4 @@ services:
 
 volumes:
   database_mysql:
+  files:
