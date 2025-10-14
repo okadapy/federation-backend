@@ -56,7 +56,7 @@ func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (*models.File, erro
 	metadata := models.File{
 		Name: fileHeader.Filename,
 		Size: fileHeader.Size,
-		Path: path,
+		Path: filename, // Store only filename, not full path
 	}
 	if err := s.db.Create(&metadata).Error; err != nil {
 		os.Remove(path) // Clean up
@@ -66,27 +66,26 @@ func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (*models.File, erro
 	return &metadata, nil
 }
 
-func (s *Service) GetFile(filename string) (io.ReadCloser, error) {
-	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
-		return nil, errors.New("invalid filename")
-	}
-	path := filepath.Join(s.storagePath, filename)
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	return file, nil
-}
-
 func (s *Service) DeleteFile(filename string) error {
-	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+	// Security check - prevent path traversal
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
 		return errors.New("invalid filename")
 	}
+
 	path := filepath.Join(s.storagePath, filename)
 	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, which might be ok in some cases
+			return nil
+		}
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 	return nil
+}
+
+// Helper function to serve files
+func (s *Service) GetFilePath(filename string) string {
+	return filepath.Join(s.storagePath, filename)
 }
 
 func isAllowedExtension(ext string) bool {
@@ -95,6 +94,11 @@ func isAllowedExtension(ext string) bool {
 		".jpeg": true,
 		".png":  true,
 		".pdf":  true,
+		".doc":  true,
+		".docx": true,
+		".txt":  true,
+		".xlsx": true,
+		".xls":  true,
 	}
 	return allowed[ext]
 }

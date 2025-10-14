@@ -5,6 +5,7 @@ import (
 	"federation-backend/app/db/models"
 	"fmt"
 	"mime/multipart"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -37,14 +38,26 @@ type FileService interface {
 	DeleteFile(filename string) error
 }
 
-func (s *Service) parseDate(date string, dst *time.Time) error {
-	timestamp, err := strconv.Atoi(date)
-	if err != nil {
-		return err
+func (s *Service) parseDate(date string) (time.Time, error) {
+	// Try parsing as timestamp first
+	if timestamp, err := strconv.ParseInt(date, 10, 64); err == nil {
+		return time.Unix(timestamp, 0), nil
 	}
 
-	*dst = time.Unix(int64(timestamp), 0)
-	return nil
+	// Try parsing as RFC3339 or other date formats
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02 15:04:05",
+	}
+
+	for _, format := range formats {
+		if parsed, err := time.Parse(format, date); err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid date format: %s", date)
 }
 
 func (s *Service) Create(dto interface{}) error {
@@ -53,40 +66,49 @@ func (s *Service) Create(dto interface{}) error {
 		return errors.New("invalid DTO type")
 	}
 
-	var date time.Time
-	if err := s.parseDate(createDTO.Date, &date); err != nil {
-		return err
+	date, err := s.parseDate(createDTO.Date)
+	if err != nil {
+		return fmt.Errorf("failed to parse date: %w", err)
 	}
 
-	news := models.News{
-		BaseNewsData: models.BaseNewsData{
-			Heading:     createDTO.Heading,
-			Description: createDTO.Description,
-			Images:      nil,
-		},
-		Date:      date,
-		ChapterID: createDTO.ChapterID,
-	}
-	if err := s.db.Create(&news).Error; err != nil {
-		return fmt.Errorf("failed to create news: %w", err)
-	}
-
-	for _, fileHeader := range createDTO.Images {
-		file, err := s.fileService.SaveFile(fileHeader)
-		if err != nil {
-			return fmt.Errorf("failed to save image: %w", err)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		news := models.News{
+			BaseNewsData: models.BaseNewsData{
+				Heading:     createDTO.Heading,
+				Description: createDTO.Description,
+			},
+			Date:      date,
+			ChapterID: createDTO.ChapterID,
 		}
-		if err := s.db.Model(&news).Association("Images").Append(&file); err != nil {
-			return fmt.Errorf("failed to associate image: %w", err)
-		}
-	}
 
-	return nil
+		if err := tx.Create(&news).Error; err != nil {
+			return fmt.Errorf("failed to create news: %w", err)
+		}
+
+		// Save and associate images
+		for _, fileHeader := range createDTO.Images {
+			file, err := s.fileService.SaveFile(fileHeader)
+			if err != nil {
+				return fmt.Errorf("failed to save image: %w", err)
+			}
+
+			// Use GORM's association method
+			if err := tx.Model(&news).Association("Images").Append(file); err != nil {
+				return fmt.Errorf("failed to associate image: %w", err)
+			}
+		}
+
+		return nil
+	})
 }
 
 func (s *Service) Get(id uint) (models.News, error) {
 	var news models.News
-	err := s.db.Model(&models.News{}).Preload("Images").Preload("Chapter").Find(&news, id).Error
+	err := s.db.
+		Preload("Images").
+		Preload("Chapter").
+		First(&news, id).Error
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.News{}, errors.New("news not found")
@@ -102,87 +124,124 @@ func (s *Service) Update(id uint, dto interface{}) error {
 		return errors.New("invalid DTO type")
 	}
 
-	var news models.News
-	if err := s.db.First(&news, id).Error; err != nil {
-		return fmt.Errorf("news not found: %w", err)
-	}
-
-	if updateDTO.Heading != nil {
-		news.Heading = *updateDTO.Heading
-	}
-	if updateDTO.Description != nil {
-		news.Description = *updateDTO.Description
-	}
-	if updateDTO.Date != nil {
-		var date time.Time
-		if err := s.parseDate(*updateDTO.Date, &date); err != nil {
-			return err
-		}
-		news.Date = date
-	}
-	if updateDTO.ChapterID != nil {
-		news.ChapterID = *updateDTO.ChapterID
-	}
-
-	if updateDTO.Images != nil {
-		var existingImages []models.File
-		if err := s.db.Model(&news).Association("Images").Find(&existingImages); err != nil {
-			return fmt.Errorf("failed to find existing images: %w", err)
-		}
-		for _, image := range existingImages {
-			if err := s.fileService.DeleteFile(image.Path); err != nil {
-				return fmt.Errorf("failed to delete image file: %w", err)
-			}
-		}
-		if err := s.db.Model(&news).Association("Images").Clear(); err != nil {
-			return fmt.Errorf("failed to clear existing images: %w", err)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var news models.News
+		if err := tx.Preload("Images").First(&news, id).Error; err != nil {
+			return fmt.Errorf("news not found: %w", err)
 		}
 
-		// Add new images
-		for _, fileHeader := range updateDTO.Images {
-			file, err := s.fileService.SaveFile(fileHeader)
+		// Update fields if provided
+		if updateDTO.Heading != nil {
+			news.Heading = *updateDTO.Heading
+		}
+		if updateDTO.Description != nil {
+			news.Description = *updateDTO.Description
+		}
+		if updateDTO.Date != nil {
+			date, err := s.parseDate(*updateDTO.Date)
 			if err != nil {
-				return fmt.Errorf("failed to save image: %w", err)
+				return fmt.Errorf("failed to parse date: %w", err)
 			}
-			if err := s.db.Model(&news).Association("Images").Append(&file); err != nil {
-				return fmt.Errorf("failed to associate image: %w", err)
+			news.Date = date
+		}
+		if updateDTO.ChapterID != nil {
+			news.ChapterID = *updateDTO.ChapterID
+		}
+
+		// Handle image updates if new images are provided
+		if updateDTO.Images != nil && len(updateDTO.Images) > 0 {
+			// Get current images to delete them later
+			currentImages := make([]models.File, len(news.Images))
+			copy(currentImages, news.Images)
+
+			// Clear existing images from association
+			if err := tx.Model(&news).Association("Images").Clear(); err != nil {
+				return fmt.Errorf("failed to clear existing images: %w", err)
+			}
+
+			// Delete the old file records and physical files
+			for _, image := range currentImages {
+				// Extract just the filename from the path for deletion
+				filename := filepath.Base(image.Path)
+				if err := s.fileService.DeleteFile(filename); err != nil {
+					// Log the error but continue with other deletions
+					fmt.Printf("Warning: failed to delete image file %s: %v\n", filename, err)
+				}
+
+				// Delete the file record from database
+				if err := tx.Delete(&image).Error; err != nil {
+					fmt.Printf("Warning: failed to delete file record %d: %v\n", image.Id, err)
+				}
+			}
+
+			// Add new images
+			for _, fileHeader := range updateDTO.Images {
+				file, err := s.fileService.SaveFile(fileHeader)
+				if err != nil {
+					return fmt.Errorf("failed to save image: %w", err)
+				}
+
+				if err := tx.Model(&news).Association("Images").Append(file); err != nil {
+					return fmt.Errorf("failed to associate image: %w", err)
+				}
 			}
 		}
-	}
 
-	if err := s.db.Save(&news).Error; err != nil {
-		return fmt.Errorf("failed to update news: %w", err)
-	}
+		// Save the updated news item
+		if err := tx.Save(&news).Error; err != nil {
+			return fmt.Errorf("failed to update news: %w", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (s *Service) Delete(id uint) error {
-	var news models.News
-	if err := s.db.Preload("Images").First(&news, id).Error; err != nil {
-		return fmt.Errorf("news not found: %w", err)
-	}
-
-	// Delete associated files
-	for _, image := range news.Images {
-		if err := s.fileService.DeleteFile(image.Path); err != nil {
-			continue
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var news models.News
+		if err := tx.Preload("Images").First(&news, id).Error; err != nil {
+			return fmt.Errorf("news not found: %w", err)
 		}
-	}
 
-	if err := s.db.Delete(&news).Error; err != nil {
-		return fmt.Errorf("failed to delete news: %w", err)
-	}
+		// Delete associated files
+		for _, image := range news.Images {
+			// Extract just the filename from the path
+			filename := filepath.Base(image.Path)
+			if err := s.fileService.DeleteFile(filename); err != nil {
+				// Log but continue with other deletions
+				fmt.Printf("Warning: failed to delete image file %s: %v\n", filename, err)
+			}
 
-	return nil
+			// Delete the file record from database
+			if err := tx.Delete(&image).Error; err != nil {
+				fmt.Printf("Warning: failed to delete file record %d: %v\n", image.Id, err)
+			}
+		}
+
+		// Clear the association first (good practice)
+		if err := tx.Model(&news).Association("Images").Clear(); err != nil {
+			return fmt.Errorf("failed to clear image associations: %w", err)
+		}
+
+		// Delete the news item
+		if err := tx.Delete(&news).Error; err != nil {
+			return fmt.Errorf("failed to delete news: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (s *Service) GetAll() ([]models.News, error) {
 	var news []models.News
-	if err := s.db.Model(&models.News{}).Preload("Images").Find(&news).Error; err != nil {
-		return nil, fmt.Errorf("failed to find news: %w", err)
-	}
+	err := s.db.
+		Preload("Images").
+		Preload("Chapter").
+		Find(&news).Error
 
+	if err != nil {
+		return nil, fmt.Errorf("failed to get news: %w", err)
+	}
 	return news, nil
 }
 
