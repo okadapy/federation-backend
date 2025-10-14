@@ -100,10 +100,6 @@ func main() {
 
 	fileGroup := app.Group("/files")
 	{
-		fileGroup.GET("/info/:id", fileController.GetFileInfo)
-		fileGroup.GET("/all", fileController.GetAllFiles)
-		fileGroup.GET("/exists/:filename", fileController.CheckFileExists)
-		fileGroup.GET("/storage-info", fileController.GetStorageInfo)
 		fileGroup.DELETE("/:filename", fileController.DeleteFile)
 	}
 
