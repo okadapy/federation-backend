@@ -50,7 +50,7 @@ func (c Controller) Get(ctx *gin.Context) {
 		return // ← Added return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"match": match})
+	ctx.JSON(http.StatusOK, match)
 }
 
 func (c Controller) GetAll(ctx *gin.Context) {
@@ -66,7 +66,7 @@ func (c Controller) GetAll(ctx *gin.Context) {
 		return // ← Added return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"matches": matches})
+	ctx.JSON(http.StatusOK, matches)
 }
 
 type CreateMatchDTO struct {
