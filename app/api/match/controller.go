@@ -44,7 +44,7 @@ func (c Controller) Get(ctx *gin.Context) {
 
 	var match *models.Match
 	// Improved preloading
-	result := c.db.Preload("Teams").Where("id = ?", id).First(&match)
+	result := c.db.Preload("Teams").Preload("Teams.TeamLogo").Where("id = ?", id).First(&match)
 	if result.Error != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"message": "match not found"})
 		return // ← Added return
@@ -55,7 +55,7 @@ func (c Controller) Get(ctx *gin.Context) {
 
 func (c Controller) GetAll(ctx *gin.Context) {
 	var matches []*models.Match
-	result := c.db.Preload("Teams").Find(&matches)
+	result := c.db.Preload("Teams").Preload("Teams.TeamLogo").Find(&matches)
 	if result.Error != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return // ← Added return
