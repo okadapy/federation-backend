@@ -10,7 +10,7 @@ services:
       db:
         condition: service_healthy
     command:
-      - "/federation"
+      - "/federation-backend"
     volumes:
       - files:/app/files
     restart: always
