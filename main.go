@@ -82,15 +82,17 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	var api = app.Group("/api")
+
 	routerController := map[interfaces.Controller]*gin.RouterGroup{
-		crud.NewCrudController[models.User](db, logger):     app.Group("/user"),
-		crud.NewCrudController[models.CallBack](db, logger): app.Group("/callback"),
-		galleryItem.NewController(db, fileService):          app.Group("/gallery"),
-		news.NewController(db, fileService):                 app.Group("/news"),
-		crud.NewCrudController[models.Chapter](db, logger):  app.Group("/chapter"),
-		team.NewController(db, fileService):                 app.Group("/team"),
-		match.NewController(db, logger):                     app.Group("/match"),
-		document.NewController(db, fileService):             app.Group("/document"),
+		crud.NewCrudController[models.User](db, logger):     api.Group("/user"),
+		crud.NewCrudController[models.CallBack](db, logger): api.Group("/callback"),
+		galleryItem.NewController(db, fileService):          api.Group("/gallery"),
+		news.NewController(db, fileService):                 api.Group("/news"),
+		crud.NewCrudController[models.Chapter](db, logger):  api.Group("/chapter"),
+		team.NewController(db, fileService):                 api.Group("/team"),
+		match.NewController(db, logger):                     api.Group("/match"),
+		document.NewController(db, fileService):             api.Group("/document"),
 	}
 
 	fileController, err := files.NewController(db, config.App.FileStoragePath)
