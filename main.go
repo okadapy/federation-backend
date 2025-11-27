@@ -100,7 +100,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	fileGroup := app.Group("/files")
+	fileGroup := api.Group("/files")
 	{
 		fileGroup.DELETE("/:filename", fileController.DeleteFile)
 	}
@@ -112,8 +112,8 @@ func main() {
 		fmt.Println("router for " + router.BasePath() + " is initialized\n\n")
 	}
 
-	app.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler))
-	app.Static("/files", "./files")
+	api.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler))
+	api.Static("/files", "./files")
 
 	if exc := app.Run(":8080"); exc != nil {
 		panic(exc)
