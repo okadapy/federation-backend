@@ -17,6 +17,7 @@ type CreateGalleryItemDTO struct {
 	ChapterID uint                    `form:"chapter_id" binding:"required"`
 	Date      string                  `form:"date" binding:"required"`
 	Images    []*multipart.FileHeader `form:"images" binding:"required,min=1"`
+	Preview   *multipart.FileHeader   `form:"preview" binding:"required"`
 }
 
 type UpdateGalleryItemDTO struct {
@@ -24,6 +25,7 @@ type UpdateGalleryItemDTO struct {
 	Name      *string                 `form:"name"`
 	Date      *string                 `form:"date"`
 	Images    []*multipart.FileHeader `form:"images"`
+	Preview   *multipart.FileHeader   `form:"preview" binding:"required"`
 }
 type Service struct {
 	db          *gorm.DB
@@ -57,6 +59,11 @@ func (s *Service) Create(dto interface{}) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		preview, err := s.fileService.SaveFile(createDTO.Preview)
+		if err != nil {
+			return fmt.Errorf("failed to save image: %w", err)
+		}
+
 		galleryItem := models.GalleryItem{
 			ChapterID: createDTO.ChapterID,
 			Name:      createDTO.Name,
@@ -65,6 +72,10 @@ func (s *Service) Create(dto interface{}) error {
 
 		if err := tx.Create(&galleryItem).Error; err != nil {
 			return fmt.Errorf("failed to create gallery item: %w", err)
+		}
+
+		if err := tx.Model(&galleryItem).Association("Preview").Replace(preview); err != nil {
+			return fmt.Errorf("failed to add preview: %w", err)
 		}
 
 		// Save and associate images
@@ -87,6 +98,7 @@ func (s *Service) Create(dto interface{}) error {
 func (s *Service) Get(id uint) (models.GalleryItem, error) {
 	var item models.GalleryItem
 	err := s.db.
+		Preload("Preview").
 		Preload("Images").
 		Preload("Chapter").
 		First(&item, id).Error
@@ -103,6 +115,7 @@ func (s *Service) Get(id uint) (models.GalleryItem, error) {
 func (s *Service) GetAll() ([]models.GalleryItem, error) {
 	var items []models.GalleryItem
 	err := s.db.
+		Preload("Preview").
 		Preload("Images").
 		Preload("Chapter").
 		Find(&items).Error
@@ -121,8 +134,16 @@ func (s *Service) Update(id uint, dto interface{}) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var item models.GalleryItem
-		if err := tx.Preload("Images").First(&item, id).Error; err != nil {
+		if err := tx.Preload("Images").Preload("Preview").Preload("Chapter").First(&item, id).Error; err != nil {
 			return fmt.Errorf("gallery item not found: %w", err)
+		}
+
+		if updateDTO.Preview != nil {
+			file, err := s.fileService.SaveFile(updateDTO.Preview)
+			if err != nil {
+				return fmt.Errorf("failed to update gallery item: %w", err)
+			}
+			tx.Model(&item).Association("Preview").Replace(file)
 		}
 
 		if updateDTO.ChapterID != nil {
@@ -190,8 +211,13 @@ func (s *Service) Update(id uint, dto interface{}) error {
 func (s *Service) Delete(id uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var item models.GalleryItem
-		if err := tx.Preload("Images").First(&item, id).Error; err != nil {
+		if err := tx.Preload("Images").Preload("Preview").First(&item, id).Error; err != nil {
 			return fmt.Errorf("gallery item not found: %w", err)
+		}
+
+		filename := filepath.Base(item.Preview.Path)
+		if err := s.fileService.DeleteFile(filename); err != nil {
+			fmt.Printf("Warning: failed to delete image file %s: %v\n", filename, err)
 		}
 
 		// Delete associated files
