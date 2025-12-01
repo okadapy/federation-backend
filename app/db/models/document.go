@@ -7,5 +7,5 @@ type Document struct {
 	Model
 	File
 	Name    string        `gorm:"size:255"`
-	Chapter enums.Doctype `json:"chapter" gorm:"type:ENUM('rules','regulations')"`
+	Chapter enums.Doctype `json:"chapter"`
 }

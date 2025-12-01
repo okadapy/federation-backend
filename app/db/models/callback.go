@@ -14,5 +14,5 @@ type CallBack struct {
 	Phone        string       `json:"phone" gorm:"size:20"`
 	Email        *string      `json:"email" gorm:"size:255"`
 	TeamName     *string      `json:"team_name" gorm:"size:255"`
-	CallbackType CallbackType `json:"callback_type" gorm:"type:ENUM('team_application','callback_request');default:'callback_request'"`
+	CallbackType CallbackType `json:"callback_type"`
 }

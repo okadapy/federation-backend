@@ -15,22 +15,5 @@ services:
       - files:/app/files
     restart: always
 
-  db:
-    image: mysql
-    environment:
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_TCP_PORT: ${DB_PORT}  # Явно указываем порт
-    ports:
-      - "3306:3306"  # Пробрасываем стандартный порт
-    volumes:
-      - database_mysql:/var/lib/mysql  # Корректный путь для MySQL
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
 volumes:
-  database_mysql:
   files:

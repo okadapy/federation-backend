@@ -28,5 +28,5 @@ type HistoryItem struct {
 type Chapter struct {
 	Model
 	Name string     `json:"name" gorm:"size:100"`
-	Page enums.Page `json:"page" gorm:"type:ENUM('news','gallery','documents')"`
+	Page enums.Page `json:"page"`
 }
