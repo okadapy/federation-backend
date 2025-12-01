@@ -54,7 +54,7 @@ func main() {
 	config.Init()
 	var app = gin.Default()
 	var logger = log.Default()
-	var db, dbErr = gorm.Open(mysql.Open("./database"), &gorm.Config{})
+	var db, dbErr = gorm.Open(mysql.Open("root:root@tcp(db:3306)/federation?parseTime=true"), &gorm.Config{})
 
 	app.Use(CORSMiddleware())
 
