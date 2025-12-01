@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	swagger "github.com/swaggo/gin-swagger"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -54,7 +54,7 @@ func main() {
 	config.Init()
 	var app = gin.Default()
 	var logger = log.Default()
-	var db, dbErr = gorm.Open(sqlite.Open("./database"), &gorm.Config{})
+	var db, dbErr = gorm.Open(mysql.Open("./database"), &gorm.Config{})
 
 	app.Use(CORSMiddleware())
 
