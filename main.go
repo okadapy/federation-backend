@@ -69,15 +69,15 @@ func main() {
 	}
 
 	if err := db.AutoMigrate(
-		models.User{},
-		models.CallBack{},
-		models.Match{},
-		models.File{},
-		models.GalleryItem{},
-		models.News{},
-		models.Chapter{},
-		models.Team{},
-		models.Document{},
+		&models.User{},
+		&models.CallBack{},
+		&models.Match{},
+		&models.File{},
+		&models.GalleryItem{},
+		&models.News{},
+		&models.Chapter{},
+		&models.Team{},
+		&models.Document{},
 	); err != nil {
 		logger.Fatal(err)
 	}
