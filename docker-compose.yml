@@ -7,7 +7,7 @@ services:
     ports:
       - "9090:8080"
     command:
-      - "/federation-backend"
+      - "./federation-backend"
     volumes:
       - files:/app/files
     restart: always
