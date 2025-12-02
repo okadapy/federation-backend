@@ -68,14 +68,12 @@ func (s *Service) Create(dto interface{}) error {
 			ChapterID: createDTO.ChapterID,
 			Name:      createDTO.Name,
 			Date:      date,
+			PreviewID: preview.Id,
+			Preview:   *preview,
 		}
 
 		if err := tx.Create(&galleryItem).Error; err != nil {
 			return fmt.Errorf("failed to create gallery item: %w", err)
-		}
-
-		if err := tx.Model(&galleryItem).Association("Preview").Replace(preview); err != nil {
-			return fmt.Errorf("failed to add preview: %w", err)
 		}
 
 		// Save and associate images
