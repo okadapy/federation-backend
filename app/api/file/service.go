@@ -5,14 +5,28 @@ import (
 	"federation-backend/app/db/models"
 	"fmt"
 	"io"
+	"maps"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+var allowed = map[string]bool{
+	".jpg":  true,
+	".jpeg": true,
+	".png":  true,
+	".pdf":  true,
+	".doc":  true,
+	".docx": true,
+	".txt":  true,
+	".xlsx": true,
+	".xls":  true,
+}
 
 type Service struct {
 	db          *gorm.DB
@@ -29,7 +43,7 @@ func NewService(db *gorm.DB, storagePath string) (*Service, error) {
 func (s *Service) SaveFile(fileHeader *multipart.FileHeader) (*models.File, error) {
 	fileExt := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	if !isAllowedExtension(fileExt) {
-		return nil, errors.New("disallowed file extension")
+		return nil, errors.New("disallowed file extension for " + fileHeader.Filename + ": " + fileExt + "allowed extensions: " + strings.Join(slices.Collect(maps.Keys(allowed)), ", "))
 	}
 
 	file, err := fileHeader.Open()
@@ -89,16 +103,5 @@ func (s *Service) GetFilePath(filename string) string {
 }
 
 func isAllowedExtension(ext string) bool {
-	allowed := map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-		".pdf":  true,
-		".doc":  true,
-		".docx": true,
-		".txt":  true,
-		".xlsx": true,
-		".xls":  true,
-	}
 	return allowed[ext]
 }

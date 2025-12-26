@@ -18,6 +18,7 @@ type News struct {
 	Date      time.Time `json:"date"`
 	ChapterID uint      `json:"chapter_id"`
 	Chapter   Chapter   `json:"chapter" gorm:"foreignKey:ChapterID"`
+	Links     string    `json:"links"`
 }
 
 type HistoryItem struct {
@@ -27,6 +28,7 @@ type HistoryItem struct {
 
 type Chapter struct {
 	Model
-	Name string     `json:"name" gorm:"size:100"`
-	Page enums.Page `json:"page"`
+	Name   string     `json:"name" gorm:"size:100"`
+	BarIdx uint       `json:"bar_idx"`
+	Page   enums.Page `json:"page"`
 }

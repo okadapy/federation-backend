@@ -74,6 +74,7 @@ type CreateMatchDTO struct {
 	Date    string    `json:"date" binding:"required"`
 	Sex     enums.Sex `json:"sex" binding:"required"`
 	TeamIDs []uint    `json:"team_ids" binding:"required"`
+	City    string    `json:"city" binding:"required"`
 }
 
 func (c Controller) Create(ctx *gin.Context) {
@@ -98,6 +99,7 @@ func (c Controller) Create(ctx *gin.Context) {
 	item.Date = date
 	item.League = dto.League
 	item.Sex = dto.Sex
+	item.City = dto.City
 	log.Println(dto.TeamIDs)
 
 	// Create match first
@@ -129,6 +131,7 @@ type UpdateMatchDTO struct {
 	Date    *string    `json:"date"`
 	Sex     *enums.Sex `json:"sex"`
 	TeamIDs []uint     `json:"team_ids"`
+	City    *string    `json:"city"`
 }
 
 func (c Controller) Update(ctx *gin.Context) {
@@ -165,6 +168,10 @@ func (c Controller) Update(ctx *gin.Context) {
 
 	if dto.Sex != nil {
 		item.Sex = *dto.Sex
+	}
+
+	if dto.City != nil {
+		item.City = *dto.City
 	}
 
 	if err := c.match.Db.Save(item).Error; err != nil {

@@ -1,7 +1,7 @@
 package news
 
 import (
-	files "federation-backend/app/api/file"
+	"federation-backend/app/api/shared"
 	"net/http"
 	"strconv"
 
@@ -90,7 +90,7 @@ func (c *Controller) GetAll(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, news)
 }
 
-func NewController(db *gorm.DB, fs *files.Service) *Controller {
+func NewController(db *gorm.DB, fs *shared.ConcurrentFileProcessor) *Controller {
 	return &Controller{
 		service: NewService(db, fs),
 	}

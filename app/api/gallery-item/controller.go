@@ -1,9 +1,12 @@
 package gallery_item
 
 import (
-	"gorm.io/gorm"
+	"federation-backend/app/api/shared"
+	"log"
 	"net/http"
 	"strconv"
+
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 )
@@ -87,8 +90,8 @@ func (c *Controller) GetAll(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, items)
 }
 
-func NewController(db *gorm.DB, service FileService) *Controller {
+func NewController(db *gorm.DB, service shared.FileProcessor, logger *log.Logger) *Controller {
 	return &Controller{
-		service: NewService(db, service),
+		service: NewService(db, service, logger),
 	}
 }

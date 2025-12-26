@@ -2,6 +2,7 @@ package news
 
 import (
 	"errors"
+	"federation-backend/app/api/shared"
 	"federation-backend/app/db/models"
 	"fmt"
 	"mime/multipart"
@@ -17,20 +18,23 @@ type CreateNewsDTO struct {
 	Description string                  `form:"description" binding:"required"`
 	Date        string                  `form:"date" binding:"required"`
 	ChapterID   uint                    `form:"chapterId" binding:"required"`
+	Links       *string                 `form:"links"`
 	Images      []*multipart.FileHeader `form:"images" binding:"required,min=1"`
 }
 
 type UpdateNewsDTO struct {
-	Heading     *string                 `form:"heading"`
-	Description *string                 `form:"description"`
-	Date        *string                 `form:"date"`
-	ChapterID   *uint                   `form:"chapterId"`
-	Images      []*multipart.FileHeader `form:"images"`
+	Heading       *string                 `form:"heading"`
+	Description   *string                 `form:"description"`
+	Date          *string                 `form:"date"`
+	ChapterID     *uint                   `form:"chapterId"`
+	Links         *string                 `form:"links"`
+	NewImages     []*multipart.FileHeader `form:"newImages"`
+	DeletedImages []uint                  `form:"deletedImages"`
 }
 
 type Service struct {
 	db          *gorm.DB
-	fileService FileService
+	fileService shared.FileProcessor
 }
 
 type FileService interface {
@@ -79,6 +83,7 @@ func (s *Service) Create(dto interface{}) error {
 			},
 			Date:      date,
 			ChapterID: createDTO.ChapterID,
+			Links:     *createDTO.Links,
 		}
 
 		if err := tx.Create(&news).Error; err != nil {
@@ -117,7 +122,6 @@ func (s *Service) Get(id uint) (models.News, error) {
 	}
 	return news, nil
 }
-
 func (s *Service) Update(id uint, dto interface{}) error {
 	updateDTO, ok := dto.(*UpdateNewsDTO)
 	if !ok {
@@ -130,7 +134,7 @@ func (s *Service) Update(id uint, dto interface{}) error {
 			return fmt.Errorf("news not found: %w", err)
 		}
 
-		// Update fields if provided
+		// Update basic fields
 		if updateDTO.Heading != nil {
 			news.Heading = *updateDTO.Heading
 		}
@@ -144,46 +148,34 @@ func (s *Service) Update(id uint, dto interface{}) error {
 			}
 			news.Date = date
 		}
-		if updateDTO.ChapterID != nil {
-			news.ChapterID = *updateDTO.ChapterID
+		if updateDTO.Links != nil {
+			news.Links = *updateDTO.Links
 		}
 
-		// Handle image updates if new images are provided
-		if updateDTO.Images != nil && len(updateDTO.Images) > 0 {
-			// Get current images to delete them later
-			currentImages := make([]models.File, len(news.Images))
-			copy(currentImages, news.Images)
+		if updateDTO.ChapterID != nil {
+			news.ChapterID = *updateDTO.ChapterID
 
-			// Clear existing images from association
-			if err := tx.Model(&news).Association("Images").Clear(); err != nil {
-				return fmt.Errorf("failed to clear existing images: %w", err)
+			// Загружаем новый Chapter для обновления ассоциации
+			var chapter models.Chapter
+			if err := tx.First(&chapter, *updateDTO.ChapterID).Error; err != nil {
+				return fmt.Errorf("failed to find chapter: %w", err)
 			}
 
-			// Delete the old file records and physical files
-			for _, image := range currentImages {
-				// Extract just the filename from the path for deletion
-				filename := filepath.Base(image.Path)
-				if err := s.fileService.DeleteFile(filename); err != nil {
-					// Log the error but continue with other deletions
-					fmt.Printf("Warning: failed to delete image file %s: %v\n", filename, err)
-				}
-
-				// Delete the file record from database
-				if err := tx.Delete(&image).Error; err != nil {
-					fmt.Printf("Warning: failed to delete file record %d: %v\n", image.Id, err)
-				}
+			// Обновляем ассоциацию
+			if err := tx.Model(&news).Association("Chapter").Replace(&chapter); err != nil {
+				return fmt.Errorf("failed to update chapter association: %w", err)
 			}
+		}
 
-			// Add new images
-			for _, fileHeader := range updateDTO.Images {
-				file, err := s.fileService.SaveFile(fileHeader)
-				if err != nil {
-					return fmt.Errorf("failed to save image: %w", err)
-				}
+		// Handle image deletion
+		if err := s.deleteImages(tx, &news, updateDTO.DeletedImages); err != nil {
+			return err
+		}
 
-				if err := tx.Model(&news).Association("Images").Append(file); err != nil {
-					return fmt.Errorf("failed to associate image: %w", err)
-				}
+		// Handle new image addition (parallel)
+		if len(updateDTO.NewImages) > 0 {
+			if err := s.addNewImages(tx, &news, updateDTO.NewImages); err != nil {
+				return err
 			}
 		}
 
@@ -194,6 +186,86 @@ func (s *Service) Update(id uint, dto interface{}) error {
 
 		return nil
 	})
+}
+
+// deleteImages удаляет указанные изображения
+func (s *Service) deleteImages(tx *gorm.DB, news *models.News, deletedImageIDs []uint) error {
+	if len(deletedImageIDs) == 0 {
+		return nil
+	}
+
+	// Находим изображения для удаления
+	var imagesToDelete []models.File
+	if err := tx.Where("id IN ?", deletedImageIDs).Find(&imagesToDelete).Error; err != nil {
+		return fmt.Errorf("failed to find images to delete: %w", err)
+	}
+
+	// Удаляем каждое изображение
+	for _, image := range imagesToDelete {
+		if err := s.deleteSingleImage(tx, news, &image); err != nil {
+			// Логируем ошибку, но продолжаем удаление остальных
+			fmt.Printf("Warning: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// deleteSingleImage удаляет одно изображение
+func (s *Service) deleteSingleImage(tx *gorm.DB, news *models.News, image *models.File) error {
+	// Удаляем из файловой системы
+	filename := filepath.Base(image.Path)
+	if err := s.fileService.DeleteFile(filename); err != nil {
+		return fmt.Errorf("failed to delete image file %s: %w", filename, err)
+	}
+
+	// Удаляем из ассоциации
+	if err := tx.Model(news).Association("Images").Delete(image); err != nil {
+		return fmt.Errorf("failed to remove image %d from association: %w", image.Id, err)
+	}
+
+	// Удаляем запись из базы
+	if err := tx.Delete(image).Error; err != nil {
+		return fmt.Errorf("failed to delete file record %d: %w", image.Id, err)
+	}
+
+	return nil
+}
+
+// addNewImages добавляет новые изображения параллельно
+func (s *Service) addNewImages(tx *gorm.DB, news *models.News, newImages []*multipart.FileHeader) error {
+	// Сохраняем файлы параллельно
+	files, errors := s.fileService.SaveFilesParallel(newImages)
+
+	// Проверяем ошибки
+	var saveErrors []error
+	for i, err := range errors {
+		if err != nil {
+			saveErrors = append(saveErrors, fmt.Errorf("image %d: %w", i, err))
+		}
+	}
+
+	if len(saveErrors) > 0 {
+		// Удаляем успешно сохраненные файлы при наличии ошибок
+		for i, file := range files {
+			if file != nil && errors[i] == nil {
+				filename := filepath.Base(file.Path)
+				s.fileService.DeleteFile(filename)
+			}
+		}
+		return fmt.Errorf("failed to save some images: %v", saveErrors)
+	}
+
+	// Ассоциируем успешно сохраненные файлы
+	for _, file := range files {
+		if file != nil {
+			if err := tx.Model(news).Association("Images").Append(file); err != nil {
+				return fmt.Errorf("failed to associate image: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) Delete(id uint) error {
@@ -245,9 +317,9 @@ func (s *Service) GetAll() ([]models.News, error) {
 	return news, nil
 }
 
-func NewService(db *gorm.DB, fileService FileService) *Service {
+func NewService(db *gorm.DB, fileProcessor shared.FileProcessor) *Service {
 	return &Service{
 		db:          db,
-		fileService: fileService,
+		fileService: fileProcessor,
 	}
 }

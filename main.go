@@ -6,6 +6,7 @@ import (
 	galleryItem "federation-backend/app/api/gallery-item"
 	"federation-backend/app/api/match"
 	"federation-backend/app/api/news"
+	"federation-backend/app/api/shared"
 	"federation-backend/app/api/shared/crud"
 	"federation-backend/app/api/team"
 	"federation-backend/app/config"
@@ -84,15 +85,17 @@ func main() {
 
 	var api = app.Group("/api")
 
+	fileProcessor := shared.NewConcurrentFileProcessor(fileService, logger)
+
 	routerController := map[interfaces.Controller]*gin.RouterGroup{
-		crud.NewCrudController[models.User](db, logger):     api.Group("/user"),
-		crud.NewCrudController[models.CallBack](db, logger): api.Group("/callback"),
-		galleryItem.NewController(db, fileService):          api.Group("/gallery"),
-		news.NewController(db, fileService):                 api.Group("/news"),
-		crud.NewCrudController[models.Chapter](db, logger):  api.Group("/chapter"),
-		team.NewController(db, fileService):                 api.Group("/team"),
-		match.NewController(db, logger):                     api.Group("/match"),
-		document.NewController(db, fileService):             api.Group("/document"),
+		crud.NewCrudController[models.User](db, logger):      api.Group("/user"),
+		crud.NewCrudController[models.CallBack](db, logger):  api.Group("/callback"),
+		galleryItem.NewController(db, fileProcessor, logger): api.Group("/gallery"),
+		news.NewController(db, fileProcessor):                api.Group("/news"),
+		crud.NewCrudController[models.Chapter](db, logger):   api.Group("/chapter"),
+		team.NewController(db, fileService):                  api.Group("/team"),
+		match.NewController(db, logger):                      api.Group("/match"),
+		document.NewController(db, fileService):              api.Group("/document"),
 	}
 
 	fileController, err := files.NewController(db, config.App.FileStoragePath)
