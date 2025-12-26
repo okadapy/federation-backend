@@ -33,7 +33,7 @@ func (p *ConcurrentFileProcessor) SaveFilesParallel(files []*multipart.FileHeade
 	errors := make([]error, len(files))
 
 	for i, file := range files {
-		p.logger.Println("[%d] Saving image...", i)
+		p.logger.Printf("[%d] Saving image...\n", i)
 		wg.Add(1)
 		go func(idx int, f *multipart.FileHeader) {
 			defer wg.Done()
@@ -41,9 +41,9 @@ func (p *ConcurrentFileProcessor) SaveFilesParallel(files []*multipart.FileHeade
 			results[idx] = file
 			errors[idx] = err
 			if err != nil {
-				p.logger.Println("[%d] Image wasn't saved!")
+				p.logger.Printf("[%d] Image wasn't saved!\n", idx)
 			} else {
-				p.logger.Println("[%d] Image was saved!")
+				p.logger.Printf("[%d] Image was saved!\n", idx)
 			}
 		}(i, file)
 	}
